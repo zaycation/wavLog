@@ -15,6 +15,16 @@ final class AudioPlayer: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
 
     func load(url: URL) {
+        // Configure audio session for background playback
+        #if os(iOS)
+            do {
+                try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+                try AVAudioSession.sharedInstance().setActive(true)
+            } catch {
+                print("Audio session error: \(error)")
+            }
+        #endif
+
         stop()
         isLoading = true
         error = nil
