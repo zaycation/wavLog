@@ -147,7 +147,6 @@ struct BounceRowView: View {
     }
 }
 
-
 struct UploadBounceView: View {
     @Environment(\.dismiss) private var dismiss
     let projectID: String
@@ -191,7 +190,7 @@ struct UploadBounceView: View {
                         text: $versionNote,
                         axis: .vertical
                     )
-                    .lineLimit(2...4)
+                    .lineLimit(2 ... 4)
                 }
 
                 if let error = errorMessage {
@@ -204,39 +203,39 @@ struct UploadBounceView: View {
             }
             .navigationTitle("Upload Bounce")
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+                .navigationBarTitleDisplayMode(.inline)
             #endif
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    if isUploading {
-                        ProgressView()
-                    } else {
-                        Button("Upload") {
-                            Task { await upload() }
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { dismiss() }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        if isUploading {
+                            ProgressView()
+                        } else {
+                            Button("Upload") {
+                                Task { await upload() }
+                            }
+                            .disabled(selectedFileURL == nil)
                         }
-                        .disabled(selectedFileURL == nil)
                     }
                 }
-            }
-            .fileImporter(
-                isPresented: $showFilePicker,
-                allowedContentTypes: [
-                    UTType(filenameExtension: "wav") ?? .audio,
-                    UTType(filenameExtension: "m4a") ?? .audio
-                ],
-                allowsMultipleSelection: false
-            ) { result in
-                Task { @MainActor in
-                    guard case .success(let urls) = result, let url = urls.first else { return }
-                    selectedFileURL = url
-                    if versionNote.isEmpty {
-                        versionNote = url.deletingPathExtension().lastPathComponent
+                .fileImporter(
+                    isPresented: $showFilePicker,
+                    allowedContentTypes: [
+                        UTType(filenameExtension: "wav") ?? .audio,
+                        UTType(filenameExtension: "m4a") ?? .audio,
+                    ],
+                    allowsMultipleSelection: false
+                ) { result in
+                    Task { @MainActor in
+                        guard case let .success(urls) = result, let url = urls.first else { return }
+                        selectedFileURL = url
+                        if versionNote.isEmpty {
+                            versionNote = url.deletingPathExtension().lastPathComponent
+                        }
                     }
                 }
-            }
         }
     }
 
@@ -261,6 +260,7 @@ struct UploadBounceView: View {
             onUploaded?(bounce)
             dismiss()
         } catch {
+            print("BOUNCE UPLOAD ERROR: \(error)")
             errorMessage = error.localizedDescription
         }
     }

@@ -22,14 +22,13 @@ final class BounceService: ObservableObject {
     private let client = SupabaseClient.shared
 
     func fetchBounces(projectID: String) async throws -> [Bounce] {
-        let bounces: [Bounce] = try await client
+        return try await client
             .from("bounces")
             .select()
             .eq("project_id", value: projectID)
             .order("created_at", ascending: false)
             .execute()
             .value
-        return bounces
     }
 
     func uploadBounce(
@@ -54,7 +53,7 @@ final class BounceService: ObservableObject {
             .upload(
                 storagePath,
                 data: data,
-                options: FileOptions(contentType: ext == "wav" ? "audio/wav" : "audio/m4a")
+                options: FileOptions(contentType: ext == "wav" ? "audio/wav" : "audio/mp4")
             )
 
         let insert = BounceInsert(
@@ -69,21 +68,19 @@ final class BounceService: ObservableObject {
             .insert(insert)
             .execute()
 
-        let bounce: Bounce = try await client
+        return try await client
             .from("bounces")
             .select()
             .eq("storage_path", value: storagePath)
             .single()
             .execute()
             .value
-        return bounce
     }
 
     func signedURL(for bounce: Bounce) async throws -> URL {
-        let response = try await client.storage
+        return try await client.storage
             .from("audio")
             .createSignedURL(path: bounce.storagePath, expiresIn: 3600)
-        return response
     }
 
     func deleteBounce(_ bounce: Bounce) async throws {
