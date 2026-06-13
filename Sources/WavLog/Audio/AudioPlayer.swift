@@ -4,6 +4,7 @@ import Foundation
 
 @MainActor
 final class AudioPlayer: ObservableObject {
+    static let shared = AudioPlayer()
     @Published var isPlaying = false
     @Published var duration: TimeInterval = 0
     @Published var currentTime: TimeInterval = 0

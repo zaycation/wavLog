@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AudioPlayerView: View {
-    @StateObject private var player = AudioPlayer()
+    @ObservedObject private var player = AudioPlayer.shared
     let url: URL
     var label: String?
 
@@ -29,7 +29,7 @@ struct AudioPlayerView: View {
                             get: { player.currentTime },
                             set: { player.seek(to: $0) }
                         ),
-                        in: 0...max(player.duration, 1)
+                        in: 0 ... max(player.duration, 1)
                     )
                     .disabled(player.duration == 0)
 
@@ -59,7 +59,6 @@ struct AudioPlayerView: View {
         .background(.secondary.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .onAppear { player.load(url: url) }
-        .onDisappear { player.stop() }
     }
 
     private func formatTime(_ seconds: TimeInterval) -> String {
