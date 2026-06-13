@@ -1,7 +1,7 @@
 import SwiftUI
 
-// Shown to returning users whose Apple ID we've seen before.
-// No invite gate — straight to SIWA.
+/// Shown to returning users whose Apple ID we've seen before.
+/// No invite gate — straight to SIWA.
 struct SignInView: View {
     @EnvironmentObject private var appState: AppState
     @Environment(\.colorScheme) private var colorScheme
@@ -45,24 +45,26 @@ struct SignInView: View {
                         appState.currentUser = profile
                         appState.onboardingComplete = profile.onboardingComplete
                         appState.isAuthenticated = true
+                        appState.isKnownUser = true
                     } onError: { message in
                         errorMessage = message
                     }
 
                     #if DEBUG
-                    Button("Skip (Dev Only)") {
-                        appState.isAuthenticated = true
-                        appState.onboardingComplete = true
-                        appState.currentUser = UserProfile(
-                            id: "dev-user",
-                            displayName: "Dev User",
-                            avatarURL: nil,
-                            onboardingComplete: true,
-                            createdAt: .now
-                        )
-                    }
-                    .font(.caption)
-                    .foregroundStyle(secondaryText.opacity(0.5))
+                        Button("Skip (Dev Only)") {
+                            appState.isAuthenticated = true
+                            appState.isKnownUser = true
+                            appState.onboardingComplete = true
+                            appState.currentUser = UserProfile(
+                                id: "dev-user",
+                                displayName: "Dev User",
+                                avatarURL: nil,
+                                onboardingComplete: true,
+                                createdAt: .now
+                            )
+                        }
+                        .font(.caption)
+                        .foregroundStyle(secondaryText.opacity(0.5))
                     #endif
                 }
 
@@ -74,14 +76,19 @@ struct SignInView: View {
 
     private var backgroundColor: Color {
         #if os(iOS)
-        colorScheme == .dark ? .black : Color(.systemBackground)
+            colorScheme == .dark ? .black : Color(.systemBackground)
         #else
-        colorScheme == .dark ? .black : Color(nsColor: .windowBackgroundColor)
+            colorScheme == .dark ? .black : Color(nsColor: .windowBackgroundColor)
         #endif
     }
 
-    private var primaryText: Color { colorScheme == .dark ? .white : .primary }
-    private var secondaryText: Color { colorScheme == .dark ? .white.opacity(0.45) : .secondary }
+    private var primaryText: Color {
+        colorScheme == .dark ? .white : .primary
+    }
+
+    private var secondaryText: Color {
+        colorScheme == .dark ? .white.opacity(0.45) : .secondary
+    }
 }
 
 #Preview {

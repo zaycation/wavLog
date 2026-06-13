@@ -58,9 +58,9 @@ struct InviteGateView: View {
             TextField("Invite code", text: $code)
                 .textCase(.uppercase)
                 .autocorrectionDisabled()
-                #if os(iOS)
+            #if os(iOS)
                 .textInputAutocapitalization(.characters)
-                #endif
+            #endif
                 .multilineTextAlignment(.center)
                 .font(.system(size: 24, weight: .semibold, design: .monospaced))
                 .padding(.vertical, 16)
@@ -108,6 +108,7 @@ struct InviteGateView: View {
             appState.currentUser = profile
             appState.onboardingComplete = profile.onboardingComplete
             appState.isAuthenticated = true
+            appState.isKnownUser = true
         } onError: { message in
             errorMessage = message
             inviteValidated = false
@@ -132,15 +133,23 @@ struct InviteGateView: View {
 
     private var backgroundColor: Color {
         #if os(iOS)
-        colorScheme == .dark ? .black : Color(.systemBackground)
+            colorScheme == .dark ? .black : Color(.systemBackground)
         #else
-        colorScheme == .dark ? .black : Color(nsColor: .windowBackgroundColor)
+            colorScheme == .dark ? .black : Color(nsColor: .windowBackgroundColor)
         #endif
     }
 
-    private var primaryText: Color { colorScheme == .dark ? .white : .black }
-    private var subtleText: Color { colorScheme == .dark ? .white.opacity(0.3) : .secondary }
-    private var fieldBackground: Color { colorScheme == .dark ? .white.opacity(0.07) : .black.opacity(0.05) }
+    private var primaryText: Color {
+        colorScheme == .dark ? .white : .black
+    }
+
+    private var subtleText: Color {
+        colorScheme == .dark ? .white.opacity(0.3) : .secondary
+    }
+
+    private var fieldBackground: Color {
+        colorScheme == .dark ? .white.opacity(0.07) : .black.opacity(0.05)
+    }
 }
 
 #Preview {
