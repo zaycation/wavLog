@@ -22,13 +22,13 @@ final class AppState: ObservableObject {
     @Published var currentUser: UserProfile?
     @Published var isRestoringSession = true
     @Published var onboardingComplete = false
-    @Published var isKnownUser = false  // stored Apple user ID from prior sign-in
+    @Published var isKnownUser = false // stored Apple user ID from prior sign-in
 
     enum AuthRoute: Equatable {
         case splash
-        case inviteGate  // brand new — must pass invite gate first
-        case signIn      // returning — SIWA directly, no invite gate
-        case onboarding  // authenticated, profile not yet set up
+        case inviteGate // brand new — must pass invite gate first
+        case signIn // returning — SIWA directly, no invite gate
+        case onboarding // authenticated, profile not yet set up
         case app
     }
 
@@ -38,7 +38,9 @@ final class AppState: ObservableObject {
         return isKnownUser ? .signIn : .inviteGate
     }
 
-    var needsOnboarding: Bool { authRoute == .onboarding }
+    var needsOnboarding: Bool {
+        authRoute == .onboarding
+    }
 
     func restoreSession() async {
         defer { isRestoringSession = false }
@@ -51,10 +53,8 @@ final class AppState: ObservableObject {
 
     func signOut() async {
         try? await AuthService.shared.signOut()
-        AuthService.shared.clearStoredAppleUser()
         currentUser = nil
         isAuthenticated = false
         onboardingComplete = false
-        isKnownUser = false
     }
 }
