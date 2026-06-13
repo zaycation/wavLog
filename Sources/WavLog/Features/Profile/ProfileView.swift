@@ -58,10 +58,13 @@ struct ProfileView: View {
 struct ProfileHeaderView: View {
     let user: UserProfile?
     var onEditTapped: (() -> Void)? = nil
+    @State private var showImagePicker = false
 
     var body: some View {
         HStack(spacing: 16) {
-            ZStack(alignment: .bottomTrailing) {
+            Button {
+                showImagePicker = true
+            } label: {
                 Circle()
                     .fill(.secondary.opacity(0.2))
                     .frame(width: 72, height: 72)
@@ -80,32 +83,42 @@ struct ProfileHeaderView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-
-                if onEditTapped != nil {
-                    Button {
-                        onEditTapped?()
-                    } label: {
-                        Image(systemName: "pencil.circle.fill")
-                            .font(.system(size: 22))
-                            .foregroundStyle(.purple)
-                            .background(
-                                Circle()
-                                    .fill(.background)
-                                    .frame(width: 20, height: 20)
-                            )
-                    }
-                    .offset(x: 4, y: 4)
-                }
             }
+            .buttonStyle(.plain)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(user?.displayName ?? "Loading...")
-                    .font(.title2)
-                    .fontWeight(.semibold)
+                Button {
+                    onEditTapped?()
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(user?.displayName ?? "Loading...")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.primary)
+
+                        if onEditTapped != nil {
+                            Image(systemName: "pencil")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
             }
 
             Spacer()
         }
+        .sheet(isPresented: $showImagePicker) {
+            ImagePicker { image in
+                Task {
+                    await uploadAvatar(image)
+                }
+            }
+        }
+    }
+
+    private func uploadAvatar(_: UIImage) async {
+        // TODO: Upload image via ProfileService and update user.avatarURL
     }
 }
 
@@ -122,7 +135,7 @@ struct EditDisplayNameView: View {
     init(currentName: String = "", onSaved: ((String) -> Void)? = nil) {
         self.currentName = currentName
         self.onSaved = onSaved
-        self._name = State(initialValue: currentName)
+        _name = State(initialValue: currentName)
     }
 
     private var canSave: Bool {
@@ -151,25 +164,25 @@ struct EditDisplayNameView: View {
             }
             .navigationTitle("Edit Name")
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+                .navigationBarTitleDisplayMode(.inline)
             #endif
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    if isSaving {
-                        ProgressView()
-                    } else {
-                        Button("Save") {
-                            Task { await save() }
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { dismiss() }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        if isSaving {
+                            ProgressView()
+                        } else {
+                            Button("Save") {
+                                Task { await save() }
+                            }
+                            .disabled(!canSave)
+                            .fontWeight(.semibold)
                         }
-                        .disabled(!canSave)
-                        .fontWeight(.semibold)
                     }
                 }
-            }
-            .onAppear { focused = true }
+                .onAppear { focused = true }
         }
         .presentationDetents([.height(220)])
         .presentationDragIndicator(.visible)
@@ -214,9 +227,9 @@ struct ActivityChartView: View {
                 let grid = buildGrid()
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(alignment: .top, spacing: cellSpacing) {
-                        ForEach(0..<columns, id: \.self) { col in
+                        ForEach(0 ..< columns, id: \.self) { col in
                             VStack(spacing: cellSpacing) {
-                                ForEach(0..<rows, id: \.self) { row in
+                                ForEach(0 ..< rows, id: \.self) { row in
                                     let count = grid[col][row]
                                     RoundedRectangle(cornerRadius: 2)
                                         .fill(cellColor(count: count))
@@ -247,9 +260,9 @@ struct ActivityChartView: View {
     private func cellColor(count: Int) -> Color {
         switch count {
         case 0: return .secondary.opacity(0.15)
-        case 1...2: return .green.opacity(0.35)
-        case 3...4: return .green.opacity(0.55)
-        case 5...7: return .green.opacity(0.75)
+        case 1 ... 2: return .green.opacity(0.35)
+        case 3 ... 4: return .green.opacity(0.55)
+        case 5 ... 7: return .green.opacity(0.75)
         default: return .green
         }
     }
@@ -267,8 +280,8 @@ struct ActivityChartView: View {
         let calendar = Calendar.current
         var grid = Array(repeating: Array(repeating: 0, count: rows), count: columns)
 
-        for col in 0..<columns {
-            for row in 0..<rows {
+        for col in 0 ..< columns {
+            for row in 0 ..< rows {
                 let daysBack = (columns - 1 - col) * 7 + (rows - 1 - row)
                 guard let date = calendar.date(byAdding: .day, value: -daysBack, to: today) else { continue }
                 let key = formatter.string(from: date)
