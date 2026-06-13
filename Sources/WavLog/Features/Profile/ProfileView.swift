@@ -1,3 +1,5 @@
+
+import PhotosUI
 import SwiftUI
 
 struct ProfileView: View {
@@ -58,33 +60,53 @@ struct ProfileView: View {
 struct ProfileHeaderView: View {
     let user: UserProfile?
     var onEditTapped: (() -> Void)? = nil
-    @State private var showImagePicker = false
+    @State private var selectedItem: PhotosPickerItem?
+    @State private var isUploading = false
+    @State private var localAvatar: UIImage?
 
     var body: some View {
         HStack(spacing: 16) {
-            Button {
-                showImagePicker = true
-            } label: {
-                Circle()
-                    .fill(.secondary.opacity(0.2))
-                    .frame(width: 72, height: 72)
-                    .overlay {
-                        if let avatarURL = user?.avatarURL, let url = URL(string: avatarURL) {
-                            AsyncImage(url: url) { image in
-                                image.resizable().scaledToFill()
-                            } placeholder: {
-                                ProgressView()
+            PhotosPicker(selection: $selectedItem, matching: .images) {
+                ZStack {
+                    Circle()
+                        .fill(.secondary.opacity(0.2))
+                        .frame(width: 72, height: 72)
+                        .overlay {
+                            if let localAvatar {
+                                Image(uiImage: localAvatar)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .clipShape(Circle())
+                            } else if let avatarURL = user?.avatarURL, let url = URL(string: avatarURL) {
+                                AsyncImage(url: url) { image in
+                                    image.resizable().scaledToFill()
+                                } placeholder: {
+                                    ProgressView()
+                                }
+                                .clipShape(Circle())
+                            } else {
+                                Text(user.map { String($0.displayName.prefix(1)).uppercased() } ?? "?")
+                                    .font(.title)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(.secondary)
                             }
-                            .clipShape(Circle())
-                        } else {
-                            Text(user.map { String($0.displayName.prefix(1)).uppercased() } ?? "?")
-                                .font(.title)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(.secondary)
                         }
+
+                    if isUploading {
+                        Circle()
+                            .fill(.black.opacity(0.5))
+                            .frame(width: 72, height: 72)
+                            .overlay { ProgressView().tint(.white) }
                     }
+                }
             }
             .buttonStyle(.plain)
+            .onChange(of: selectedItem) { _, newVal in
+                guard let newVal else { return }
+                Task {
+                    await handleImageSelection(newVal)
+                }
+            }
 
             VStack(alignment: .leading, spacing: 4) {
                 Button {
@@ -108,17 +130,19 @@ struct ProfileHeaderView: View {
 
             Spacer()
         }
-        .sheet(isPresented: $showImagePicker) {
-            ImagePicker { image in
-                Task {
-                    await uploadAvatar(image)
-                }
-            }
-        }
     }
 
-    private func uploadAvatar(_: UIImage) async {
-        // TODO: Upload image via ProfileService and update user.avatarURL
+    private func handleImageSelection(_ item: PhotosPickerItem) async {
+        isUploading = true
+        defer { isUploading = false }
+
+        guard let data = try? await item.loadTransferable(type: Data.self),
+              let image = UIImage(data: data) else { return }
+
+        localAvatar = image
+        // TODO: Upload data via ProfileService to Supabase Storage
+        // and update user.avatarURL
+        print("Got image data: \(data.count) bytes")
     }
 }
 
