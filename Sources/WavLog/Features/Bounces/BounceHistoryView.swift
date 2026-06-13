@@ -7,6 +7,7 @@ struct BounceHistoryView: View {
     @State private var isLoading = false
     @State private var showUploadSheet = false
     @State private var errorMessage: String?
+    @State private var activeBounceID: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -41,7 +42,8 @@ struct BounceHistoryView: View {
                         ForEach(Array(bounces.enumerated()), id: \.element.id) { index, bounce in
                             BounceRowView(
                                 bounce: bounce,
-                                isLatest: index == 0
+                                isLatest: index == 0,
+                                activeBounceID: $activeBounceID
                             )
                         }
                     }
@@ -76,9 +78,14 @@ struct BounceHistoryView: View {
 struct BounceRowView: View {
     let bounce: Bounce
     let isLatest: Bool
+    @Binding var activeBounceID: String?
     @State private var signedURL: URL?
     @State private var isLoadingURL = false
     @State private var uploaderName: String = "..."
+
+    private var isActive: Bool {
+        activeBounceID == bounce.id
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -113,11 +120,11 @@ struct BounceRowView: View {
                 Spacer()
             }
 
-            if let url = signedURL {
+            if isActive, let url = signedURL {
                 AudioPlayerView(url: url)
             } else {
                 Button {
-                    Task { await loadSignedURL() }
+                    Task { await loadAndPlay() }
                 } label: {
                     Label(
                         isLoadingURL ? "Loading..." : "Load Audio",
@@ -140,10 +147,15 @@ struct BounceRowView: View {
         }
     }
 
-    private func loadSignedURL() async {
+    private func loadAndPlay() async {
         isLoadingURL = true
         defer { isLoadingURL = false }
-        signedURL = try? await BounceService.shared.signedURL(for: bounce)
+        if signedURL == nil {
+            signedURL = try? await BounceService.shared.signedURL(for: bounce)
+        }
+        if signedURL != nil {
+            activeBounceID = bounce.id
+        }
     }
 }
 
