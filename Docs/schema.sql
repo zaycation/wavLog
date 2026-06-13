@@ -36,6 +36,7 @@ create table invites (
     created_by  uuid references profiles(id) not null,
     used_by     uuid references profiles(id),
     used_at     timestamptz,
+    is_active   boolean not null default true,
     created_at  timestamptz not null default now()
 );
 alter table invites enable row level security;
@@ -72,12 +73,17 @@ create table project_collaborators (
 alter table project_collaborators enable row level security;
 
 -- RLS helpers
-create or replace function is_project_member(project_id uuid)
+-- Note: parameter named p_project_id to avoid shadowing the column name
+create or replace function is_project_member(p_project_id uuid)
 returns boolean language sql security definer as $$
     select exists (
-        select 1 from projects where id = project_id and owner_id = auth.uid()
+        select 1 from projects
+        where id = p_project_id
+        and owner_id = auth.uid()
         union
-        select 1 from project_collaborators where project_id = project_id and user_id = auth.uid()
+        select 1 from project_collaborators
+        where project_id = p_project_id
+        and user_id = auth.uid()
     );
 $$;
 

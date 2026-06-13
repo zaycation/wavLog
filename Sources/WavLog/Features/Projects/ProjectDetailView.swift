@@ -1,8 +1,13 @@
 import SwiftUI
 
 struct ProjectDetailView: View {
-    let project: Project
+    @State var project: Project
     @State private var selectedTab = DetailTab.bounces
+    @EnvironmentObject private var appState: AppState
+    @State private var showCollaborators = false
+    @State private var showArchiveConfirm = false
+    @State private var showDeleteConfirm = false
+    @State private var isArchiving = false
 
     enum DetailTab: String, CaseIterable {
         case bounces = "Bounces"
@@ -10,9 +15,13 @@ struct ProjectDetailView: View {
         case notes = "Notes"
     }
 
+    private var isOwner: Bool {
+        project.ownerID == appState.currentUser?.id
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            ProjectHeaderView(project: project)
+            ProjectHeaderView(project: $project)
                 .padding()
 
             Picker("Tab", selection: $selectedTab) {
@@ -29,11 +38,11 @@ struct ProjectDetailView: View {
             Group {
                 switch selectedTab {
                 case .bounces:
-                    BounceHistoryView(projectID: project.id)
+                    BounceHistoryView(project: $project)
                 case .comments:
                     CommentThreadView(projectID: project.id)
                 case .notes:
-                    NotesView(project: project)
+                    NotesView(project: $project)
                 }
             }
         }
@@ -41,17 +50,108 @@ struct ProjectDetailView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    Button {
+                        showCollaborators = true
+                    } label: {
+                        Label("Collaborators", systemImage: "person.2")
+                    }
+
+                    if isOwner && !project.isArchived {
+                        Button(role: .destructive) {
+                            showArchiveConfirm = true
+                        } label: {
+                            Label("Archive Audio", systemImage: "archivebox")
+                        }
+                    }
+
+                    if isOwner {
+                        Button(role: .destructive) {
+                            showDeleteConfirm = true
+                        } label: {
+                            Label("Delete Project", systemImage: "trash")
+                        }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+            }
+        }
+        .navigationDestination(isPresented: $showCollaborators) {
+            CollaboratorsView(project: project)
+        }
+        .confirmationDialog(
+            "Archive Audio Files?",
+            isPresented: $showArchiveConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Archive", role: .destructive) {
+                Task { await archive() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes all audio from storage. Metadata, comments, and bounce notes are kept permanently.")
+        }
+        .confirmationDialog(
+            "Delete Project?",
+            isPresented: $showDeleteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                Task { await delete() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently deletes the project and all its data.")
+        }
+    }
+
+    private func archive() async {
+        isArchiving = true
+        defer { isArchiving = false }
+        try? await ProjectService.shared.archiveProject(project)
+        project.isArchived = true
+    }
+
+    private func delete() async {
+        try? await ProjectService.shared.deleteProject(project)
     }
 }
 
 struct ProjectHeaderView: View {
-    let project: Project
+    @Binding var project: Project
+    @State private var isUpdatingStatus = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                ProjectStatusBadge(status: project.status)
+                Menu {
+                    ForEach(Project.Status.allCases, id: \.self) { status in
+                        Button {
+                            Task { await updateStatus(status) }
+                        } label: {
+                            Label(status.displayName, systemImage: statusIcon(status))
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        ProjectStatusBadge(status: project.status)
+                        if isUpdatingStatus {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                        } else {
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .disabled(isUpdatingStatus)
+
                 Spacer()
+
                 if project.isArchived {
                     Label("Archived", systemImage: "archivebox")
                         .font(.caption)
@@ -82,6 +182,21 @@ struct ProjectHeaderView: View {
             }
         }
     }
+
+    private func updateStatus(_ status: Project.Status) async {
+        isUpdatingStatus = true
+        defer { isUpdatingStatus = false }
+        guard let updated = try? await ProjectService.shared.updateStatus(project, status: status) else { return }
+        project = updated
+    }
+
+    private func statusIcon(_ status: Project.Status) -> String {
+        switch status {
+        case .wip: "pencil.circle"
+        case .shared: "person.2.circle"
+        case .complete: "checkmark.circle"
+        }
+    }
 }
 
 struct MetadataItem: View {
@@ -101,29 +216,75 @@ struct MetadataItem: View {
     }
 }
 
-struct BounceHistoryView: View {
-    let projectID: String
-
-    var body: some View {
-        Text("Bounce history — coming soon")
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
 struct NotesView: View {
-    let project: Project
+    @Binding var project: Project
+    @State private var editedNotes = ""
+    @State private var isEditing = false
+    @State private var isSaving = false
+    @State private var lastUpdated: Date? = nil
 
     var body: some View {
-        Text(project.lyricsNotes ?? "No notes yet.")
-            .foregroundStyle(project.lyricsNotes == nil ? .secondary : .primary)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .padding()
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Lyrics & Notes")
+                        .font(.headline)
+                    if let date = lastUpdated {
+                        Text("Updated \(date.formatted(.relative(presentation: .named)))")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding()
+                Spacer()
+                Button(isEditing ? "Done" : "Edit") {
+                    if isEditing {
+                        Task { await saveNotes() }
+                    } else {
+                        editedNotes = project.lyricsNotes ?? ""
+                        isEditing = true
+                    }
+                }
+                .padding()
+                .disabled(isSaving)
+            }
+            Divider()
+
+            if isEditing {
+                TextEditor(text: $editedNotes)
+                    .padding()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    Text(
+                        project.lyricsNotes?.isEmpty == false
+                            ? project.lyricsNotes!
+                            : "No notes yet. Tap Edit to add lyrics, structure, or ideas."
+                    )
+                    .foregroundStyle(project.lyricsNotes?.isEmpty == false ? .primary : .secondary)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .padding()
+                }
+            }
+        }
+        .onAppear {
+            lastUpdated = project.updatedAt
+        }
+    }
+
+    private func saveNotes() async {
+        isSaving = true
+        defer { isSaving = false }
+        try? await ProjectService.shared.updateNotes(project, notes: editedNotes)
+        project.lyricsNotes = editedNotes
+        lastUpdated = .now
+        isEditing = false
     }
 }
 
 #Preview {
     NavigationStack {
         ProjectDetailView(project: .preview)
+            .environmentObject(AppState())
     }
 }

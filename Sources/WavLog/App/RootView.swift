@@ -5,12 +5,46 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            if appState.isAuthenticated {
+            switch appState.authRoute {
+            case .splash:
+                SplashView()
+            case .inviteGate:
+                InviteGateView()
+            case .signIn:
+                SignInView()
+            case .onboarding:
+                OnboardingView()
+            case .app:
                 MainTabView()
-            } else {
-                AuthView()
             }
         }
+        .animation(.easeInOut(duration: 0.35), value: appState.authRoute)
+    }
+}
+
+struct SplashView: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        ZStack {
+            backgroundColor.ignoresSafeArea()
+            VStack(spacing: 16) {
+                AnimatedWaveformView()
+                    .frame(height: 100)
+                    .padding(.horizontal, 32)
+                Text("WavLog")
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .foregroundStyle(colorScheme == .dark ? Color.white : Color.primary)
+            }
+        }
+    }
+
+    private var backgroundColor: Color {
+        #if os(iOS)
+        return colorScheme == .dark ? .black : Color(.systemBackground)
+        #else
+        return colorScheme == .dark ? .black : Color(nsColor: .windowBackgroundColor)
+        #endif
     }
 }
 
@@ -19,13 +53,9 @@ struct MainTabView: View {
         #if os(iOS)
         TabView {
             ProjectListView()
-                .tabItem {
-                    Label("Projects", systemImage: "music.note.list")
-                }
+                .tabItem { Label("Projects", systemImage: "music.note.list") }
             ProfileView()
-                .tabItem {
-                    Label("Profile", systemImage: "person.circle")
-                }
+                .tabItem { Label("Profile", systemImage: "person.circle") }
         }
         #else
         NavigationSplitView {

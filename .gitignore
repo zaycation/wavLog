@@ -32,6 +32,9 @@ Podfile.lock
 .env.local
 *.env
 
+# Supabase credentials (real keys live here, never commit)
+Sources/WavLog/Supabase/Config.swift
+
 # OS
 .DS_Store
 .AppleDouble
