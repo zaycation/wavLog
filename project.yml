@@ -28,11 +28,6 @@ targets:
     deploymentTarget:
       iOS: "17.0"
       macOS: "14.0"
-    info:
-      properties:
-        UIBackgroundModes:
-          - audio
-          - remote-notification
     sources:
       - path: Sources/WavLog
     resources:
