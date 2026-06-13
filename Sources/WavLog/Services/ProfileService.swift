@@ -1,5 +1,6 @@
 import Foundation
 import Supabase
+import UIKit
 
 private struct ProfileOnboardingUpdate: Encodable {
     let displayName: String
@@ -26,14 +27,13 @@ final class ProfileService: ObservableObject {
     private let client = SupabaseClient.shared
 
     func fetchProfile(userID: String) async throws -> UserProfile {
-        let profile: UserProfile = try await client
+        return try await client
             .from("profiles")
             .select()
             .eq("id", value: userID)
             .single()
             .execute()
             .value
-        return profile
     }
 
     func completeOnboarding(displayName: String) async throws {
@@ -101,10 +101,57 @@ final class ProfileService: ObservableObject {
         return counts.map { ActivityDay(dateString: $0.key, count: $0.value) }
             .sorted { $0.dateString < $1.dateString }
     }
+
+    private struct AvatarURLUpdate: Encodable {
+        let avatarURL: String
+
+        enum CodingKeys: String, CodingKey {
+            case avatarURL = "avatar_url"
+        }
+    }
+
+    func uploadAvatar(imageData: Data) async throws -> String {
+        let userID = try await client.auth.session.user.id.uuidString
+        let fileName = "\(userID)/avatar.jpg"
+
+        // Compress to JPEG
+        guard let uiImage = UIImage(data: imageData),
+              let jpegData = uiImage.jpegData(compressionQuality: 0.7)
+        else {
+            throw NSError(domain: "ProfileService", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to compress image"])
+        }
+
+        // Upload to Supabase Storage
+        try await client.storage
+            .from("avatars")
+            .upload(
+                path: fileName,
+                file: jpegData,
+                options: FileOptions(contentType: "image/jpeg", upsert: true)
+            )
+
+        // Get public URL
+        let publicURL = try client.storage
+            .from("avatars")
+            .getPublicURL(path: fileName)
+            .absoluteString + "?t=\(Int(Date().timeIntervalSince1970))"
+
+        // Update profile record
+        try await client
+            .from("profiles")
+            .update(AvatarURLUpdate(avatarURL: publicURL))
+            .eq("id", value: userID)
+            .execute()
+
+        return publicURL
+    }
 }
 
 struct ActivityDay: Identifiable {
-    var id: String { dateString }
+    var id: String {
+        dateString
+    }
+
     let dateString: String
     let count: Int
 }

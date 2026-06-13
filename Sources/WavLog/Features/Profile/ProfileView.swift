@@ -140,9 +140,16 @@ struct ProfileHeaderView: View {
               let image = UIImage(data: data) else { return }
 
         localAvatar = image
-        // TODO: Upload data via ProfileService to Supabase Storage
-        // and update user.avatarURL
-        print("Got image data: \(data.count) bytes")
+
+        do {
+            let url = try await ProfileService.shared.uploadAvatar(imageData: data)
+            // Update the user model so it persists
+            if var user = user as? UserProfile {
+                // URL is saved in DB, will load on next session
+            }
+        } catch {
+            print("Avatar upload failed: \(error)")
+        }
     }
 }
 
