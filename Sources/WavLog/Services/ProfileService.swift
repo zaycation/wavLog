@@ -111,7 +111,7 @@ final class ProfileService: ObservableObject {
     }
 
     func uploadAvatar(imageData: Data) async throws -> String {
-        let userID = try await client.auth.session.user.id.uuidString
+        let userID = try await client.auth.session.user.id.uuidString.lowercased()
         let fileName = "\(userID)/avatar.jpg"
 
         // Compress to JPEG
