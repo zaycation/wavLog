@@ -8,6 +8,8 @@ struct ProfileView: View {
     @State private var isLoadingActivity = false
     @State private var showEditName = false
 
+    @AppStorage("wavlog_project_view") private var viewStyleRaw: String = ProjectViewStyle.cards.rawValue
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -17,6 +19,7 @@ struct ProfileView: View {
                         onEditTapped: { showEditName = true }
                     )
                     ActivityChartView(days: activityDays, isLoading: isLoadingActivity)
+                    ProjectViewPreference(selection: $viewStyleRaw)
                 }
                 .padding()
             }
@@ -320,6 +323,51 @@ struct ActivityChartView: View {
             }
         }
         return grid
+    }
+}
+
+struct ProjectViewPreference: View {
+    @Binding var selection: String
+
+    private struct Option: Identifiable {
+        let id: String
+        let label: String
+        var value: String {
+            id
+        }
+    }
+
+    private let options: [Option] = [
+        Option(id: ProjectViewStyle.cards.rawValue, label: "Cards"),
+        Option(id: ProjectViewStyle.list.rawValue, label: "List"),
+        Option(id: ProjectViewStyle.grid.rawValue, label: "Grid"),
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Project View")
+                .font(.headline)
+
+            HStack(spacing: 0) {
+                ForEach(options) { option in
+                    let isSelected = selection == option.value
+                    Button {
+                        selection = option.value
+                    } label: {
+                        Text(option.label)
+                            .font(.subheadline)
+                            .fontWeight(isSelected ? .semibold : .regular)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(isSelected ? Color.primary.opacity(0.12) : Color.clear)
+                            .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .background(Color.secondary.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+        }
     }
 }
 

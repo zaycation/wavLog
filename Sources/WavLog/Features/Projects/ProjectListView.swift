@@ -1,6 +1,12 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+enum ProjectViewStyle: String {
+    case cards
+    case list
+    case grid
+}
+
 struct ProjectListView: View {
     @EnvironmentObject private var appState: AppState
     @State private var projects: [Project] = []
@@ -9,6 +15,12 @@ struct ProjectListView: View {
     @State private var errorMessage: String?
 
     @State private var selectedProject: Project? = nil
+
+    @AppStorage("wavlog_project_view") private var viewStyleRaw: String = ProjectViewStyle.cards.rawValue
+
+    private var viewStyle: ProjectViewStyle {
+        ProjectViewStyle(rawValue: viewStyleRaw) ?? .cards
+    }
 
     #if os(macOS)
         @State private var isDAWDropTargeted = false
@@ -30,35 +42,49 @@ struct ProjectListView: View {
                             description: Text("Log your first beat or drop a DAW file to get started.")
                         )
                     } else {
-                        List(projects) { project in
-                            Button {
-                                selectedProject = project
-                            } label: {
-                                ProjectRowView(project: project)
-                                    .contentShape(Rectangle())
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                        switch viewStyle {
+                        case .cards:
+                            ScrollView {
+                                ProjectCardStackView(
+                                    projects: projects,
+                                    onSelect: { selectedProject = $0 }
+                                )
                             }
-                            .buttonStyle(.plain)
-                            .buttonStyle(.plain)
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                if project.ownerID == appState.currentUser?.id {
-                                    Button(role: .destructive) {
-                                        Task { await delete(project) }
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
+                        case .list:
+                            List(projects) { project in
+                                Button {
+                                    selectedProject = project
+                                } label: {
+                                    ProjectRowView(project: project)
+                                        .contentShape(Rectangle())
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                .buttonStyle(.plain)
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                    if project.ownerID == appState.currentUser?.id {
+                                        Button(role: .destructive) {
+                                            Task { await delete(project) }
+                                        } label: {
+                                            Label("Delete", systemImage: "trash")
+                                        }
                                     }
                                 }
                             }
+                            #if os(iOS)
+                            .listStyle(.insetGrouped)
+                            #else
+                            .listStyle(.inset)
+                            #endif
+                        case .grid:
+                            ProjectGridView(
+                                projects: projects,
+                                onSelect: { selectedProject = $0 }
+                            )
                         }
-                        .navigationDestination(item: $selectedProject) { project in
-                            ProjectDetailView(project: project)
-                        }
-                        #if os(iOS)
-                        .listStyle(.insetGrouped)
-                        #else
-                        .listStyle(.inset)
-                        #endif
                     }
+                }
+                .navigationDestination(item: $selectedProject) { project in
+                    ProjectDetailView(project: project)
                 }
 
                 #if os(macOS)
@@ -95,7 +121,6 @@ struct ProjectListView: View {
                 }
             }
             .task { await loadProjects() }
-            .refreshable { await loadProjects() }
             .alert("Error", isPresented: .constant(errorMessage != nil)) {
                 Button("OK") { errorMessage = nil }
             } message: {
