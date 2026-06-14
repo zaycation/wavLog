@@ -122,13 +122,23 @@ final class ProfileService: ObservableObject {
         }
 
         // Upload to Supabase Storage
-        try await client.storage
-            .from("avatars")
-            .upload(
-                path: fileName,
-                file: jpegData,
-                options: FileOptions(contentType: "image/jpeg", upsert: true)
-            )
+        do {
+            try await client.storage
+                .from("avatars")
+                .update(
+                    path: fileName,
+                    file: jpegData,
+                    options: FileOptions(contentType: "image/jpeg")
+                )
+        } catch {
+            try await client.storage
+                .from("avatars")
+                .upload(
+                    path: fileName,
+                    file: jpegData,
+                    options: FileOptions(contentType: "image/jpeg")
+                )
+        }
 
         // Get public URL
         let publicURL = try client.storage

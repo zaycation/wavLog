@@ -11,9 +11,9 @@ struct ProjectListView: View {
     @State private var selectedProject: Project? = nil
 
     #if os(macOS)
-    @State private var isDAWDropTargeted = false
-    @State private var dawImportResult: DAWImportResult?
-    @State private var showDAWReview = false
+        @State private var isDAWDropTargeted = false
+        @State private var dawImportResult: DAWImportResult?
+        @State private var showDAWReview = false
     #endif
 
     var body: some View {
@@ -35,7 +35,10 @@ struct ProjectListView: View {
                                 selectedProject = project
                             } label: {
                                 ProjectRowView(project: project)
+                                    .contentShape(Rectangle())
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                             }
+                            .buttonStyle(.plain)
                             .buttonStyle(.plain)
                             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                 if project.ownerID == appState.currentUser?.id {
@@ -59,31 +62,31 @@ struct ProjectListView: View {
                 }
 
                 #if os(macOS)
-                if isDAWDropTargeted {
-                    DAWDropOverlay(isTargeted: $isDAWDropTargeted)
-                        .padding()
-                        .allowsHitTesting(false)
-                }
+                    if isDAWDropTargeted {
+                        DAWDropOverlay(isTargeted: $isDAWDropTargeted)
+                            .padding()
+                            .allowsHitTesting(false)
+                    }
                 #endif
             }
             .navigationTitle("Projects")
             .toolbar {
                 #if os(macOS)
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showCreateProject = true
-                    } label: {
-                        Image(systemName: "plus")
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            showCreateProject = true
+                        } label: {
+                            Image(systemName: "plus")
+                        }
                     }
-                }
                 #else
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showCreateProject = true
-                    } label: {
-                        Image(systemName: "plus")
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            showCreateProject = true
+                        } label: {
+                            Image(systemName: "plus")
+                        }
                     }
-                }
                 #endif
             }
             .sheet(isPresented: $showCreateProject) {
