@@ -7,21 +7,21 @@ enum ProjectViewStyle: String {
     case grid
 }
 
+struct ProjectDestination: Identifiable, Hashable {
+    let project: Project
+    let initialTab: ProjectDetailView.DetailTab
+    var id: String {
+        project.id
+    }
+}
+
 struct ProjectListView: View {
     @EnvironmentObject private var appState: AppState
     @State private var projects: [Project] = []
     @State private var showCreateProject = false
     @State private var isLoading = false
-    @State private var errorMessage: String?.
-        @State private var selectedDestination: ProjectDestination? = nil
-
-    struct ProjectDestination: Identifiable, Hashable {
-        let project: Project
-        let initialTab: ProjectDetailView.DetailTab
-        var id: String {
-            project.id
-        }
-    }
+    @State private var errorMessage: String?
+    @State private var selectedDestination: ProjectDestination? = nil
 
     @AppStorage("wavlog_project_view") private var viewStyleRaw: String = ProjectViewStyle.cards.rawValue
 
@@ -54,13 +54,15 @@ struct ProjectListView: View {
                             ScrollView {
                                 ProjectCardStackView(
                                     projects: projects,
-                                    onSelect: { selectedDestination = ProjectDestination(project: $0, initialTab: .bounces) }
+                                    onSelect: { project, tab in
+                                        selectedDestination = ProjectDestination(project: project, initialTab: tab)
+                                    }
                                 )
                             }
                         case .list:
                             List(projects) { project in
                                 Button {
-                                    selectedProject = project
+                                    selectedDestination = ProjectDestination(project: project, initialTab: .bounces)
                                 } label: {
                                     ProjectRowView(project: project)
                                         .contentShape(Rectangle())
@@ -93,6 +95,7 @@ struct ProjectListView: View {
                 .navigationDestination(item: $selectedDestination) { destination in
                     ProjectDetailView(project: destination.project, initialTab: destination.initialTab)
                 }
+
                 #if os(macOS)
                     if isDAWDropTargeted {
                         DAWDropOverlay(isTargeted: $isDAWDropTargeted)
