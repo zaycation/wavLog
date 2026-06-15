@@ -23,10 +23,21 @@ struct CommentThreadView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.top, 40)
                     } else if comments.isEmpty {
-                        Text("No feedback yet.")
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, 40)
+                        VStack(spacing: 12) {
+                            Image(systemName: "bubble.left.and.bubble.right")
+                                .font(.system(size: 40))
+                                .foregroundStyle(.secondary.opacity(0.5))
+                            Text("No feedback yet")
+                                .font(.headline)
+                                .foregroundStyle(.primary)
+                            Text("Be the first to drop a note or reaction on this project.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 32)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 80)
                     } else {
                         ForEach(topLevel) { comment in
                             CommentRowView(
@@ -68,7 +79,7 @@ struct CommentThreadView: View {
             HStack(spacing: 12) {
                 TextField("Leave feedback...", text: $newCommentText, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
-                    .lineLimit(1...4)
+                    .lineLimit(1 ... 4)
                 Button {
                     Task { await submitComment() }
                 } label: {
@@ -77,7 +88,7 @@ struct CommentThreadView: View {
                 }
                 .disabled(
                     newCommentText.trimmingCharacters(in: .whitespaces).isEmpty
-                    || isSubmitting
+                        || isSubmitting
                 )
             }
             .padding()

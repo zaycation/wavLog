@@ -58,6 +58,7 @@ struct ProjectCardStackView: View {
                 }
             }
         }
+        .padding(.top, 32)
     }
 }
 
@@ -103,6 +104,7 @@ private struct ProjectCard: View {
                     feedbackPreview
                         .padding(.horizontal, 16)
                         .padding(.top, 12)
+                        .padding(.bottom, 4)
 
                     Spacer(minLength: 8)
 
@@ -234,7 +236,6 @@ private struct ProjectCard: View {
         }
     }
 
-    @ViewBuilder
     private func metaItem(value: String, label: String) -> some View {
         VStack(spacing: 2) {
             Text(value)
@@ -246,7 +247,6 @@ private struct ProjectCard: View {
         }
     }
 
-    @ViewBuilder
     private func actionButton(icon: String, label: String) -> some View {
         VStack(spacing: 4) {
             Image(systemName: icon)
