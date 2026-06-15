@@ -55,8 +55,6 @@ final class ProfileService: ObservableObject {
     }
 
     func fetchActivityCounts(userID: String) async throws -> [ActivityDay] {
-        // Pull project creation, bounce uploads, and comments authored
-        // within the last 365 days and group by date.
         let since = Calendar.current.date(byAdding: .year, value: -1, to: .now) ?? .now
         let sinceISO = ISO8601DateFormatter().string(from: since)
 
@@ -114,29 +112,25 @@ final class ProfileService: ObservableObject {
         let userID = try await client.auth.session.user.id.uuidString.lowercased()
         let fileName = "\(userID)/avatar.jpg"
 
-        // Compress to JPEG
         guard let uiImage = UIImage(data: imageData),
               let jpegData = uiImage.jpegData(compressionQuality: 0.7)
         else {
             throw NSError(domain: "ProfileService", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to compress image"])
         }
 
-        // Upload to Supabase Storage
         try await client.storage
             .from("avatars")
             .upload(
-                path: fileName,
-                file: jpegData,
+                fileName,
+                data: jpegData,
                 options: FileOptions(contentType: "image/jpeg", upsert: true)
             )
 
-        // Get public URL
         let publicURL = try client.storage
             .from("avatars")
             .getPublicURL(path: fileName)
             .absoluteString + "?t=\(Int(Date().timeIntervalSince1970))"
 
-        // Update profile record
         try await client
             .from("profiles")
             .update(AvatarURLUpdate(avatarURL: publicURL))

@@ -1,4 +1,3 @@
-
 import PhotosUI
 import SwiftUI
 
@@ -145,11 +144,8 @@ struct ProfileHeaderView: View {
         localAvatar = image
 
         do {
-            let url = try await ProfileService.shared.uploadAvatar(imageData: data)
-            // Update the user model so it persists
-            if var user = user as? UserProfile {
-                // URL is saved in DB, will load on next session
-            }
+            _ = try await ProfileService.shared.uploadAvatar(imageData: data)
+            // URL is saved in DB, will load on next session
         } catch {
             print("Avatar upload failed: \(error)")
         }
