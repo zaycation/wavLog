@@ -2,7 +2,13 @@ import SwiftUI
 
 struct ProjectDetailView: View {
     @State var project: Project
-    @State private var selectedTab = DetailTab.bounces
+    @State private var selectedTab: DetailTab
+
+    init(project: Project, initialTab: DetailTab = .bounces) {
+        _project = State(initialValue: project)
+        _selectedTab = State(initialValue: initialTab)
+    }
+
     @EnvironmentObject private var appState: AppState
     @State private var showCollaborators = false
     @State private var showArchiveConfirm = false
@@ -48,64 +54,64 @@ struct ProjectDetailView: View {
         }
         .navigationTitle(project.title)
         #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.inline)
         #endif
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Menu {
-                    Button {
-                        showCollaborators = true
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        Button {
+                            showCollaborators = true
+                        } label: {
+                            Label("Collaborators", systemImage: "person.2")
+                        }
+
+                        if isOwner && !project.isArchived {
+                            Button(role: .destructive) {
+                                showArchiveConfirm = true
+                            } label: {
+                                Label("Archive Audio", systemImage: "archivebox")
+                            }
+                        }
+
+                        if isOwner {
+                            Button(role: .destructive) {
+                                showDeleteConfirm = true
+                            } label: {
+                                Label("Delete Project", systemImage: "trash")
+                            }
+                        }
                     } label: {
-                        Label("Collaborators", systemImage: "person.2")
+                        Image(systemName: "ellipsis.circle")
                     }
-
-                    if isOwner && !project.isArchived {
-                        Button(role: .destructive) {
-                            showArchiveConfirm = true
-                        } label: {
-                            Label("Archive Audio", systemImage: "archivebox")
-                        }
-                    }
-
-                    if isOwner {
-                        Button(role: .destructive) {
-                            showDeleteConfirm = true
-                        } label: {
-                            Label("Delete Project", systemImage: "trash")
-                        }
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
                 }
             }
-        }
-        .navigationDestination(isPresented: $showCollaborators) {
-            CollaboratorsView(project: project)
-        }
-        .confirmationDialog(
-            "Archive Audio Files?",
-            isPresented: $showArchiveConfirm,
-            titleVisibility: .visible
-        ) {
-            Button("Archive", role: .destructive) {
-                Task { await archive() }
+            .navigationDestination(isPresented: $showCollaborators) {
+                CollaboratorsView(project: project)
             }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This removes all audio from storage. Metadata, comments, and bounce notes are kept permanently.")
-        }
-        .confirmationDialog(
-            "Delete Project?",
-            isPresented: $showDeleteConfirm,
-            titleVisibility: .visible
-        ) {
-            Button("Delete", role: .destructive) {
-                Task { await delete() }
+            .confirmationDialog(
+                "Archive Audio Files?",
+                isPresented: $showArchiveConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Archive", role: .destructive) {
+                    Task { await archive() }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This removes all audio from storage. Metadata, comments, and bounce notes are kept permanently.")
             }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This permanently deletes the project and all its data.")
-        }
+            .confirmationDialog(
+                "Delete Project?",
+                isPresented: $showDeleteConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Delete", role: .destructive) {
+                    Task { await delete() }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This permanently deletes the project and all its data.")
+            }
     }
 
     private func archive() async {

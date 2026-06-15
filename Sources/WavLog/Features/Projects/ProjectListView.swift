@@ -12,9 +12,16 @@ struct ProjectListView: View {
     @State private var projects: [Project] = []
     @State private var showCreateProject = false
     @State private var isLoading = false
-    @State private var errorMessage: String?
+    @State private var errorMessage: String?.
+        @State private var selectedDestination: ProjectDestination? = nil
 
-    @State private var selectedProject: Project? = nil
+    struct ProjectDestination: Identifiable, Hashable {
+        let project: Project
+        let initialTab: ProjectDetailView.DetailTab
+        var id: String {
+            project.id
+        }
+    }
 
     @AppStorage("wavlog_project_view") private var viewStyleRaw: String = ProjectViewStyle.cards.rawValue
 
@@ -47,7 +54,7 @@ struct ProjectListView: View {
                             ScrollView {
                                 ProjectCardStackView(
                                     projects: projects,
-                                    onSelect: { selectedProject = $0 }
+                                    onSelect: { selectedDestination = ProjectDestination(project: $0, initialTab: .bounces) }
                                 )
                             }
                         case .list:
@@ -78,15 +85,14 @@ struct ProjectListView: View {
                         case .grid:
                             ProjectGridView(
                                 projects: projects,
-                                onSelect: { selectedProject = $0 }
+                                onSelect: { selectedDestination = ProjectDestination(project: $0, initialTab: .bounces) }
                             )
                         }
                     }
                 }
-                .navigationDestination(item: $selectedProject) { project in
-                    ProjectDetailView(project: project)
+                .navigationDestination(item: $selectedDestination) { destination in
+                    ProjectDetailView(project: destination.project, initialTab: destination.initialTab)
                 }
-
                 #if os(macOS)
                     if isDAWDropTargeted {
                         DAWDropOverlay(isTargeted: $isDAWDropTargeted)

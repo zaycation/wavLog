@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ProjectCardStackView: View {
     let projects: [Project]
-    let onSelect: (Project) -> Void
+    let onSelect: (Project, ProjectDetailView.DetailTab) -> Void
 
     @State private var selectedID: Int?
 
@@ -21,7 +21,7 @@ struct ProjectCardStackView: View {
                         ) { index, project in
                             ProjectCard(
                                 project: project,
-                                onTap: { onSelect(project) }
+                                onTap: { tab in onSelect(project, tab) }
                             )
                             .frame(width: cardWidth, height: cardHeight)
                             .id(index)
@@ -66,7 +66,7 @@ struct ProjectCardStackView: View {
 
 private struct ProjectCard: View {
     let project: Project
-    let onTap: () -> Void
+    let onTap: (ProjectDetailView.DetailTab) -> Void
 
     private static let waveformHeights: [CGFloat] = [
         20, 35, 55, 40, 65, 50, 30, 70, 45, 25,
@@ -74,7 +74,7 @@ private struct ProjectCard: View {
     ]
 
     var body: some View {
-        Button(action: onTap) {
+        Button(action: { onTap(.bounces) }) {
             ZStack {
                 RoundedRectangle(cornerRadius: 20)
                     .fill(Color(red: 26.0 / 255, green: 26.0 / 255, blue: 36.0 / 255))
@@ -227,11 +227,17 @@ private struct ProjectCard: View {
     private var actionRow: some View {
         HStack {
             Spacer()
-            actionButton(icon: "bubble.left", label: "FEEDBACK")
+            actionButton(icon: "bubble.left", label: "FEEDBACK") {
+                onTap(.comments)
+            }
             Spacer()
-            actionButton(icon: "text.alignleft", label: "LYRICS")
+            actionButton(icon: "text.alignleft", label: "LYRICS") {
+                onTap(.notes)
+            }
             Spacer()
-            actionButton(icon: "square.and.arrow.up", label: "SHARE")
+            actionButton(icon: "square.and.arrow.up", label: "SHARE") {
+                // TODO: share flow
+            }
             Spacer()
         }
     }
@@ -247,15 +253,18 @@ private struct ProjectCard: View {
         }
     }
 
-    private func actionButton(icon: String, label: String) -> some View {
-        VStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.system(size: 19))
-                .foregroundStyle(.white.opacity(0.7))
-            Text(label)
-                .font(.system(size: 9, weight: .medium))
-                .foregroundStyle(.white.opacity(0.5))
+    private func actionButton(icon: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 19))
+                    .foregroundStyle(.white.opacity(0.7))
+                Text(label)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.5))
+            }
         }
+        .buttonStyle(.plain)
     }
 }
 
@@ -264,7 +273,7 @@ private struct ProjectCard: View {
         Color.black.ignoresSafeArea()
         ProjectCardStackView(
             projects: [.preview, .preview, .preview],
-            onSelect: { _ in }
+            onSelect: { _, _ in }
         )
     }
 }
