@@ -73,39 +73,49 @@ final class MusicUnderstandingService {
     @available(iOS 27.0, macOS 27.0, *)
     private func runSession(audioURL: URL) async throws -> AnalysisResult {
         let asset = AVAsset(url: audioURL)
-        let session = MusicUnderstandingSession(asset: asset)
-        let result = try await session.analysis(for: asset)
+        let session = try await MusicUnderstandingSession(asset: asset)
+        let result = try await session.analyze()
 
-        let structure = result.structure.map {
+        // StructureResult only exposes time-range boundaries, not section names,
+        // so labels are synthesized rather than read from the framework.
+        let structure = (result.structure?.sections ?? []).enumerated().map { index, range in
             TrackSection(
-                label: $0.label,
-                start: $0.timeRange.start.seconds,
-                end: $0.timeRange.end.seconds
+                label: "Section \(index + 1)",
+                start: range.start.seconds,
+                end: (range.start + range.duration).seconds
             )
         }
 
-        let instruments = result.instrumentActivity.flatMap { activity in
-            activity.activeRanges.map {
+        let instruments = (result.instrumentActivity?.ranges ?? [:]).flatMap { instrument, ranges in
+            ranges.map {
                 InstrumentActivity(
-                    instrument: activity.instrument,
+                    instrument: instrument.rawValue,
                     start: $0.start.seconds,
-                    end: $0.end.seconds
+                    end: ($0.start + $0.duration).seconds
                 )
             }
         }
 
-        let loudness = result.loudnessCurve.map {
-            LoudnessSample(time: $0.time.seconds, value: Double($0.loudness))
+        let loudness = (result.loudness?.momentary ?? []).map {
+            LoudnessSample(time: $0.time.seconds, value: Double($0.value))
         }
 
+        let keySignature = result.key?.ranges.first?.value
         return AnalysisResult(
-            bpm: result.tempo.map { Int($0.beatsPerMinute.rounded()) },
-            key: result.key?.displayName,
+            bpm: result.rhythm?.beatsPerMinute.map { Int($0.rounded()) },
+            key: keySignature.map(Self.keyDisplayName),
             structure: structure,
             instruments: instruments,
             loudness: loudness,
             waveform: Self.resample(loudness.map(\LoudnessSample.value), targetCount: 100)
         )
+    }
+
+    // Tonic/mode case-name casing isn't fully confirmed against the SDK yet, so this
+    // uses reflection instead of an exhaustive switch to stay compile-safe.
+    @available(iOS 27.0, macOS 27.0, *)
+    private static func keyDisplayName(_ signature: KeyResult.KeySignature) -> String {
+        "\(String(describing: signature.tonic).capitalized) \(String(describing: signature.mode).capitalized)"
     }
     #endif
 
