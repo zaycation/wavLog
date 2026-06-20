@@ -4,6 +4,12 @@ struct AudioPlayerView: View {
     @ObservedObject private var player = AudioPlayer.shared
     let url: URL
     var label: String?
+    var waveform: [Double]?
+
+    private var progress: Double {
+        guard player.duration > 0 else { return 0 }
+        return player.currentTime / player.duration
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -24,14 +30,22 @@ struct AudioPlayerView: View {
                 .disabled(player.isLoading || player.error != nil)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Slider(
-                        value: Binding(
-                            get: { player.currentTime },
-                            set: { player.seek(to: $0) }
-                        ),
-                        in: 0 ... max(player.duration, 1)
-                    )
-                    .disabled(player.duration == 0)
+                    if let waveform, !waveform.isEmpty {
+                        WaveformScrubberView(samples: waveform, progress: progress) { fraction in
+                            player.seek(to: fraction * player.duration)
+                        }
+                        .frame(height: 36)
+                        .disabled(player.duration == 0)
+                    } else {
+                        Slider(
+                            value: Binding(
+                                get: { player.currentTime },
+                                set: { player.seek(to: $0) }
+                            ),
+                            in: 0 ... max(player.duration, 1)
+                        )
+                        .disabled(player.duration == 0)
+                    }
 
                     HStack {
                         Text(formatTime(player.currentTime))

@@ -43,6 +43,7 @@ struct BounceHistoryView: View {
                             BounceRowView(
                                 bounce: bounce,
                                 isLatest: index == 0,
+                                waveform: index == 0 ? project.waveformData : nil,
                                 activeBounceID: $activeBounceID
                             )
                         }
@@ -84,6 +85,7 @@ struct BounceHistoryView: View {
 struct BounceRowView: View {
     let bounce: Bounce
     let isLatest: Bool
+    var waveform: [Double]?
     @Binding var activeBounceID: String?
     @State private var signedURL: URL?
     @State private var isLoadingURL = false
@@ -127,7 +129,7 @@ struct BounceRowView: View {
             }
 
             if isActive, let url = signedURL {
-                AudioPlayerView(url: url)
+                AudioPlayerView(url: url, waveform: waveform)
             } else {
                 Button {
                     Task { await loadAndPlay() }
