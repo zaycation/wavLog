@@ -100,6 +100,8 @@ final class MusicUnderstandingService {
             LoudnessSample(time: $0.time.seconds, value: Double($0.value))
         }
 
+        print("MUSIC UNDERSTANDING DEBUG: structure=\(structure.count) instruments=\(instruments.count) loudness=\(loudness.count) rhythm=\(String(describing: result.rhythm)) key=\(String(describing: result.key)) loudnessResult=\(String(describing: result.loudness))")
+
         let keySignature = result.key?.ranges.first?.value
         return AnalysisResult(
             bpm: result.rhythm?.beatsPerMinute.map { Int($0.rounded()) },
