@@ -218,9 +218,8 @@ struct CreateProjectView: View {
     /// Runs Music Understanding on the picked bounce, uploads it, and prefills
     /// metadata the user hasn't already entered. iOS 27+ / macOS 27+ only.
     private func handleAudioPicked(_ url: URL) async {
-        guard canSubmit else {
-            errorMessage = "Add a title before adding a bounce."
-            return
+        if title.trimmingCharacters(in: .whitespaces).isEmpty {
+            title = url.deletingPathExtension().lastPathComponent
         }
         errorMessage = nil
         pickedAudioURL = url
