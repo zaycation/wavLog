@@ -73,7 +73,7 @@ final class MusicUnderstandingService {
     @available(iOS 27.0, macOS 27.0, *)
     private func runSession(audioURL: URL) async throws -> AnalysisResult {
         let asset = AVAsset(url: audioURL)
-        let session = MusicUnderstandingSession()
+        let session = MusicUnderstandingSession(asset: asset)
         let result = try await session.analysis(for: asset)
 
         let structure = result.structure.map {
@@ -104,7 +104,7 @@ final class MusicUnderstandingService {
             structure: structure,
             instruments: instruments,
             loudness: loudness,
-            waveform: Self.resample(loudness.map(\.value), targetCount: 100)
+            waveform: Self.resample(loudness.map(\LoudnessSample.value), targetCount: 100)
         )
     }
     #endif
