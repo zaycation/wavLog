@@ -73,7 +73,7 @@ final class MusicUnderstandingService {
     @available(iOS 27.0, macOS 27.0, *)
     private func runSession(audioURL: URL) async throws -> AnalysisResult {
         let asset = AVAsset(url: audioURL)
-        let session = MusicUnderstandingSession(asset: asset)
+        let session = try await MusicUnderstandingSession(asset: asset)
         let result = try await session.analysis(for: asset)
 
         let structure = result.structure.map {
