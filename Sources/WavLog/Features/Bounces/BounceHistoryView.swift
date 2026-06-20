@@ -53,9 +53,15 @@ struct BounceHistoryView: View {
         }
         .task { await loadBounces() }
         .sheet(isPresented: $showUploadSheet) {
-            UploadBounceView(projectID: project.id) { newBounce in
-                bounces.insert(newBounce, at: 0)
-            }
+            UploadBounceView(
+                projectID: project.id,
+                onUploaded: { newBounce in
+                    bounces.insert(newBounce, at: 0)
+                },
+                onProjectUpdated: { updated in
+                    project = updated
+                }
+            )
         }
         .alert("Error", isPresented: .constant(errorMessage != nil)) {
             Button("OK") { errorMessage = nil }
@@ -163,6 +169,7 @@ struct UploadBounceView: View {
     @Environment(\.dismiss) private var dismiss
     let projectID: String
     var onUploaded: ((Bounce) -> Void)?
+    var onProjectUpdated: ((Project) -> Void)?
 
     @State private var selectedFileURL: URL?
     @State private var versionNote = ""
@@ -170,8 +177,19 @@ struct UploadBounceView: View {
     @State private var uploadProgress: Double = 0
     @State private var errorMessage: String?
     @State private var showFilePicker = false
+    @State private var isAnalyzing = false
 
     var body: some View {
+        ZStack {
+            navigationContent
+
+            if isAnalyzing {
+                AnalyzingBounceView()
+            }
+        }
+    }
+
+    private var navigationContent: some View {
         NavigationStack {
             Form {
                 Section {
@@ -270,10 +288,29 @@ struct UploadBounceView: View {
                 versionNote: versionNote.isEmpty ? nil : versionNote
             )
             onUploaded?(bounce)
+            await analyzeIfSupported(fileURL: fileURL)
             dismiss()
         } catch {
             print("BOUNCE UPLOAD ERROR: \(error)")
             errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Re-runs Music Understanding on every new bounce, not just the first
+    /// (PRD 5.6 / 8): each version gets its own auto-extracted BPM and key.
+    private func analyzeIfSupported(fileURL: URL) async {
+        guard #available(iOS 27.0, macOS 27.0, *) else { return }
+        isAnalyzing = true
+        defer { isAnalyzing = false }
+        do {
+            let result = try await MusicUnderstandingService.shared.analyze(audioURL: fileURL)
+            let updated = try await ProjectService.shared.updateDetectedMetadata(
+                projectID: projectID,
+                result: result
+            )
+            onProjectUpdated?(updated)
+        } catch {
+            print("MUSIC UNDERSTANDING ERROR: \(error)")
         }
     }
 }

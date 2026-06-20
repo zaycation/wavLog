@@ -16,6 +16,14 @@ struct Project: Identifiable, Codable, Hashable {
     let createdAt: Date
     var updatedAt: Date
 
+    // Populated by Music Understanding auto-analysis (iOS 27+ / macOS 27+). See PRD 5.6.
+    var detectedBPM: Int? = nil
+    var detectedKey: String? = nil
+    var waveformData: [Double]? = nil
+    var structureData: [TrackSection]? = nil
+    var instrumentData: [InstrumentActivity]? = nil
+    var loudnessData: [LoudnessSample]? = nil
+
     enum CodingKeys: String, CodingKey {
         case id
         case ownerID = "owner_id"
@@ -30,6 +38,19 @@ struct Project: Identifiable, Codable, Hashable {
         case lyricsNotes = "lyrics_notes"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+        case detectedBPM = "detected_bpm"
+        case detectedKey = "detected_key"
+        case waveformData = "waveform_data"
+        case structureData = "structure_data"
+        case instrumentData = "instrument_data"
+        case loudnessData = "loudness_data"
+    }
+
+    /// Total span covered by structure/instrument analysis, for proportional timeline rendering.
+    var analyzedDuration: Double {
+        let structureEnd = structureData?.map(\.end).max() ?? 0
+        let instrumentEnd = instrumentData?.map(\.end).max() ?? 0
+        return max(structureEnd, instrumentEnd, 1)
     }
 
     enum Status: String, Codable, CaseIterable {
@@ -69,6 +90,21 @@ extension Project {
         isArchived: false,
         lyricsNotes: nil,
         createdAt: .now,
-        updatedAt: .now
+        updatedAt: .now,
+        detectedBPM: 140,
+        detectedKey: "A Minor",
+        waveformData: (0 ..< 60).map { _ in Double.random(in: 0.15...1) },
+        structureData: [
+            TrackSection(label: "intro", start: 0, end: 8),
+            TrackSection(label: "verse", start: 8, end: 24),
+            TrackSection(label: "chorus", start: 24, end: 36),
+            TrackSection(label: "bridge", start: 36, end: 44),
+        ],
+        instrumentData: [
+            InstrumentActivity(instrument: "drums", start: 4, end: 44),
+            InstrumentActivity(instrument: "bass", start: 8, end: 44),
+            InstrumentActivity(instrument: "vocals", start: 12, end: 36),
+        ],
+        loudnessData: (0 ..< 60).map { LoudnessSample(time: Double($0) * 0.73, value: Double.random(in: 0.15...1)) }
     )
 }

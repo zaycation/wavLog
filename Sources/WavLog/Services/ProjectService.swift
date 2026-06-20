@@ -87,6 +87,49 @@ final class ProjectService: ObservableObject {
         return updated
     }
 
+    func updateMetadata(_ project: Project, draft: ProjectDraft) async throws -> Project {
+        let update = ProjectMetadataUpdate(
+            title: draft.title,
+            bpm: draft.bpm,
+            key: draft.key.flatMap { $0.isEmpty ? nil : $0 },
+            genre: draft.genre.flatMap { $0.isEmpty ? nil : $0 },
+            influences: draft.influences.flatMap { $0.isEmpty ? nil : $0 },
+            bandlabURL: draft.bandlabURL.flatMap { $0.isEmpty ? nil : $0 }
+        )
+        let updated: Project = try await client
+            .from("projects")
+            .update(update)
+            .eq("id", value: project.id)
+            .select()
+            .single()
+            .execute()
+            .value
+        return updated
+    }
+
+    /// Persists Music Understanding output (PRD 5.6). Detected fields are kept
+    /// separate from the user-facing bpm/key columns so a manual override never
+    /// overwrites what was actually detected.
+    func updateDetectedMetadata(projectID: String, result: AnalysisResult) async throws -> Project {
+        let update = ProjectAnalysisUpdate(
+            detectedBPM: result.bpm,
+            detectedKey: result.key,
+            waveformData: result.waveform.isEmpty ? nil : result.waveform,
+            structureData: result.structure.isEmpty ? nil : result.structure,
+            instrumentData: result.instruments.isEmpty ? nil : result.instruments,
+            loudnessData: result.loudness.isEmpty ? nil : result.loudness
+        )
+        let updated: Project = try await client
+            .from("projects")
+            .update(update)
+            .eq("id", value: projectID)
+            .select()
+            .single()
+            .execute()
+            .value
+        return updated
+    }
+
     func updateNotes(_ project: Project, notes: String) async throws {
         try await client
             .from("projects")
@@ -140,5 +183,41 @@ private struct ProjectInsert: Encodable {
         case influences
         case bandlabURL = "bandlab_url"
         case status
+    }
+}
+
+private struct ProjectMetadataUpdate: Encodable {
+    let title: String
+    let bpm: Int?
+    let key: String?
+    let genre: String?
+    let influences: String?
+    let bandlabURL: String?
+
+    enum CodingKeys: String, CodingKey {
+        case title
+        case bpm
+        case key
+        case genre
+        case influences
+        case bandlabURL = "bandlab_url"
+    }
+}
+
+private struct ProjectAnalysisUpdate: Encodable {
+    let detectedBPM: Int?
+    let detectedKey: String?
+    let waveformData: [Double]?
+    let structureData: [TrackSection]?
+    let instrumentData: [InstrumentActivity]?
+    let loudnessData: [LoudnessSample]?
+
+    enum CodingKeys: String, CodingKey {
+        case detectedBPM = "detected_bpm"
+        case detectedKey = "detected_key"
+        case waveformData = "waveform_data"
+        case structureData = "structure_data"
+        case instrumentData = "instrument_data"
+        case loudnessData = "loudness_data"
     }
 }
