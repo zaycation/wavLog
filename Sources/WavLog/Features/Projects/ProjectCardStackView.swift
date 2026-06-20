@@ -68,10 +68,19 @@ private struct ProjectCard: View {
     let project: Project
     let onTap: (ProjectDetailView.DetailTab) -> Void
 
-    private static let waveformHeights: [CGFloat] = [
+    private static let placeholderWaveformHeights: [CGFloat] = [
         20, 35, 55, 40, 65, 50, 30, 70, 45, 25,
         60, 38, 52, 44, 28, 66, 42, 58, 33, 48,
     ]
+
+    // Swaps in the real Music Understanding waveform when available, otherwise
+    // keeps the placeholder bars. Layout/styling below is unchanged either way.
+    private var waveformHeights: [CGFloat] {
+        guard let data = project.waveformData, !data.isEmpty else { return Self.placeholderWaveformHeights }
+        let resampled = MusicUnderstandingService.resample(data, targetCount: Self.placeholderWaveformHeights.count)
+        let peak = max(resampled.max() ?? 1, 0.0001)
+        return resampled.map { 16 + CGFloat($0 / peak) * 54 }
+    }
 
     var body: some View {
         Button(action: { onTap(.bounces) }) {
@@ -172,7 +181,7 @@ private struct ProjectCard: View {
 
             HStack(alignment: .center, spacing: 3) {
                 ForEach(
-                    Array(Self.waveformHeights.enumerated()),
+                    Array(waveformHeights.enumerated()),
                     id: \.offset
                 ) { _, height in
                     RoundedRectangle(cornerRadius: 2)

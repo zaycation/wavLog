@@ -30,6 +30,12 @@ struct ProjectDetailView: View {
             ProjectHeaderView(project: $project)
                 .padding()
 
+            if project.waveformData != nil {
+                TrackAnalysisView(project: project)
+                    .padding(.horizontal)
+                    .padding(.bottom, 12)
+            }
+
             Picker("Tab", selection: $selectedTab) {
                 ForEach(DetailTab.allCases, id: \.self) { tab in
                     Text(tab.rawValue).tag(tab)
@@ -285,6 +291,137 @@ struct NotesView: View {
         project.lyricsNotes = editedNotes
         lastUpdated = .now
         isEditing = false
+    }
+}
+
+// MARK: - Track Analysis (Music Understanding, PRD 5.6)
+
+struct TrackAnalysisView: View {
+    let project: Project
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Track Analysis")
+                .font(.headline)
+
+            if let loudness = project.loudnessData, !loudness.isEmpty {
+                WaveformBarsView(samples: loudness.map(\.value))
+                    .frame(height: 64)
+            }
+
+            if let structure = project.structureData, !structure.isEmpty {
+                StructureTimelineView(sections: structure, duration: project.analyzedDuration)
+            }
+
+            if let instruments = project.instrumentData, !instruments.isEmpty {
+                InstrumentActivityView(activity: instruments, duration: project.analyzedDuration)
+            }
+        }
+        .padding()
+        .background(.secondary.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+struct WaveformBarsView: View {
+    let samples: [Double]
+    private static let maxBars = 60
+
+    var body: some View {
+        let bars = MusicUnderstandingService.resample(samples, targetCount: Self.maxBars)
+        let peak = max(bars.max() ?? 1, 0.0001)
+        HStack(alignment: .center, spacing: 2) {
+            ForEach(Array(bars.enumerated()), id: \.offset) { _, value in
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color.purple.opacity(0.6))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: max(4, CGFloat(value / peak) * 60))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+    }
+}
+
+struct StructureTimelineView: View {
+    let sections: [TrackSection]
+    let duration: Double
+
+    private static let colors: [Color] = [.purple, .blue, .orange, .green, .pink, .teal]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("STRUCTURE")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            GeometryReader { geo in
+                HStack(spacing: 1) {
+                    ForEach(Array(sections.enumerated()), id: \.offset) { index, section in
+                        Self.colors[index % Self.colors.count]
+                            .opacity(0.7)
+                            .frame(width: max(2, geo.size.width * CGFloat((section.end - section.start) / duration)))
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+            }
+            .frame(height: 14)
+
+            HStack(spacing: 10) {
+                ForEach(Array(sections.enumerated()), id: \.offset) { index, section in
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(Self.colors[index % Self.colors.count])
+                            .frame(width: 6, height: 6)
+                        Text(section.label.capitalized)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct InstrumentActivityView: View {
+    let activity: [InstrumentActivity]
+    let duration: Double
+
+    private var grouped: [(name: String, ranges: [InstrumentActivity])] {
+        Dictionary(grouping: activity, by: \.instrument)
+            .map { (name: $0.key, ranges: $0.value) }
+            .sorted { $0.name < $1.name }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("INSTRUMENTS")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            ForEach(grouped, id: \.name) { group in
+                HStack(spacing: 8) {
+                    Text(group.name.capitalized)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 56, alignment: .leading)
+
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(.secondary.opacity(0.1))
+                            ForEach(Array(group.ranges.enumerated()), id: \.offset) { _, range in
+                                let width = geo.size.width * CGFloat((range.end - range.start) / duration)
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(Color.purple.opacity(0.6))
+                                    .frame(width: max(2, width))
+                                    .offset(x: geo.size.width * CGFloat(range.start / duration))
+                            }
+                        }
+                    }
+                    .frame(height: 10)
+                }
+            }
+        }
     }
 }
 

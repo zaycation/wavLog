@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct CreateProjectView: View {
     @Environment(\.dismiss) private var dismiss
@@ -16,16 +17,57 @@ struct CreateProjectView: View {
     @State private var showGenrePicker = false
     @FocusState private var titleFocused: Bool
 
+    // Music Understanding auto-analysis (iOS 27+ / macOS 27+). See PRD 5.6.
+    @State private var showAudioPicker = false
+    @State private var pickedAudioURL: URL?
+    @State private var isAnalyzing = false
+    @State private var createdProject: Project?
+
     private var canSubmit: Bool {
         !title.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     var body: some View {
+        ZStack {
+            navigationContent
+
+            if isAnalyzing {
+                AnalyzingBounceView()
+            }
+        }
+    }
+
+    private var navigationContent: some View {
         NavigationStack {
             Form {
                 Section("Title") {
                     TextField("Untitled Beat", text: $title)
                         .focused($titleFocused)
+                }
+
+                if #available(iOS 27.0, macOS 27.0, *) {
+                    Section {
+                        Button {
+                            showAudioPicker = true
+                        } label: {
+                            HStack {
+                                Label(
+                                    pickedAudioURL?.lastPathComponent ?? "Add Bounce (.wav or .m4a)",
+                                    systemImage: pickedAudioURL != nil ? "waveform" : "doc.badge.plus"
+                                )
+                                Spacer()
+                                if pickedAudioURL != nil {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(.green)
+                                }
+                            }
+                        }
+                        .disabled(isAnalyzing)
+                    } header: {
+                        Text("Audio Bounce")
+                    } footer: {
+                        Text("On-device analysis fills in BPM, key, and the waveform automatically.")
+                    }
                 }
 
                 Section("Metadata") {
@@ -130,7 +172,29 @@ struct CreateProjectView: View {
                     selection: $selectedGenre
                 )
             }
+            .fileImporter(
+                isPresented: $showAudioPicker,
+                allowedContentTypes: [
+                    UTType(filenameExtension: "wav") ?? .audio,
+                    UTType(filenameExtension: "m4a") ?? .audio,
+                ],
+                allowsMultipleSelection: false
+            ) { result in
+                guard case let .success(urls) = result, let url = urls.first else { return }
+                Task { await handleAudioPicked(url) }
+            }
         }
+    }
+
+    private func currentDraft() -> ProjectDraft {
+        ProjectDraft(
+            title: title.trimmingCharacters(in: .whitespaces),
+            bpm: Int(bpmText),
+            key: selectedKey == "None" ? nil : selectedKey,
+            genre: selectedGenre,
+            influences: influences.isEmpty ? nil : influences,
+            bandlabURL: bandlabURL.isEmpty ? nil : bandlabURL
+        )
     }
 
     private func save() async {
@@ -138,17 +202,60 @@ struct CreateProjectView: View {
         errorMessage = nil
         defer { isSubmitting = false }
         do {
-            let draft = ProjectDraft(
-                title: title.trimmingCharacters(in: .whitespaces),
-                bpm: Int(bpmText),
-                key: selectedKey == "None" ? nil : selectedKey,
-                genre: selectedGenre,
-                influences: influences.isEmpty ? nil : influences,
-                bandlabURL: bandlabURL.isEmpty ? nil : bandlabURL
-            )
-            let project = try await ProjectService.shared.createProject(draft)
+            let project: Project
+            if let createdProject {
+                project = try await ProjectService.shared.updateMetadata(createdProject, draft: currentDraft())
+            } else {
+                project = try await ProjectService.shared.createProject(currentDraft())
+            }
             onCreated?(project)
             dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Runs Music Understanding on the picked bounce, uploads it, and prefills
+    /// metadata the user hasn't already entered. iOS 27+ / macOS 27+ only.
+    private func handleAudioPicked(_ url: URL) async {
+        guard canSubmit else {
+            errorMessage = "Add a title before adding a bounce."
+            return
+        }
+        errorMessage = nil
+        pickedAudioURL = url
+        isAnalyzing = true
+        defer { isAnalyzing = false }
+
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+
+        do {
+            let project: Project
+            if let createdProject {
+                project = createdProject
+            } else {
+                project = try await ProjectService.shared.createProject(currentDraft())
+                createdProject = project
+            }
+
+            let result = try await MusicUnderstandingService.shared.analyze(audioURL: url)
+            _ = try await BounceService.shared.uploadBounce(
+                projectID: project.id,
+                fileURL: url,
+                versionNote: nil
+            )
+
+            if bpmText.isEmpty, let bpm = result.bpm {
+                bpmText = String(bpm)
+            }
+            if selectedKey == nil, let key = result.key {
+                selectedKey = key
+            }
+            createdProject = try await ProjectService.shared.updateDetectedMetadata(
+                projectID: project.id,
+                result: result
+            )
         } catch {
             errorMessage = error.localizedDescription
         }
